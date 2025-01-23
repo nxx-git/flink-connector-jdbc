@@ -50,26 +50,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.DRIVER;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.LOOKUP_CACHE_MAX_ROWS;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.LOOKUP_CACHE_MISSING_KEY;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.LOOKUP_CACHE_TTL;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.LOOKUP_MAX_RETRIES;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.MAX_RETRY_TIMEOUT;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.PASSWORD;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_AUTO_COMMIT;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_FETCH_SIZE;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_PARTITION_COLUMN;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_PARTITION_LOWER_BOUND;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_PARTITION_NUM;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SCAN_PARTITION_UPPER_BOUND;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SINK_BUFFER_FLUSH_INTERVAL;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SINK_BUFFER_FLUSH_MAX_ROWS;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SINK_MAX_RETRIES;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.SINK_PARALLELISM;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.TABLE_NAME;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.URL;
-import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.USERNAME;
+import static org.apache.flink.connector.jdbc.table.JdbcConnectorOptions.*;
 
 /**
  * Factory for creating configured instances of {@link JdbcDynamicTableSource} and {@link
@@ -140,9 +121,15 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
                         .setConnectionCheckTimeoutSeconds(
                                 (int) readableConfig.get(MAX_RETRY_TIMEOUT).getSeconds());
 
+        System.out.println("URL: " + url);
+        System.out.println("TABLE_NAME: " + readableConfig.get(TABLE_NAME));
+        System.out.println("classLoader: " + classLoader.toString());
+        System.out.println("readableConfig: " + readableConfig.toString());
+
         readableConfig.getOptional(DRIVER).ifPresent(builder::setDriverName);
         readableConfig.getOptional(USERNAME).ifPresent(builder::setUsername);
         readableConfig.getOptional(PASSWORD).ifPresent(builder::setPassword);
+        readableConfig.getOptional(UPDATE_FIELDS).ifPresent(builder::setUpdateFields);
         return builder.build();
     }
 
@@ -177,11 +164,19 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
                         .mapToObj(i -> DataType.getFieldNames(dataType).get(i))
                         .toArray(String[]::new);
 
+        String[] updateFields = null;
+        String updateFieldStr = jdbcOptions.getUpdateFields();
+        if (updateFieldStr != null) {
+            updateFields =
+                    Stream.of(updateFieldStr.split(",")).map(String::trim).toArray(String[]::new);
+        }
+
         return JdbcDmlOptions.builder()
                 .withTableName(jdbcOptions.getTableName())
                 .withDialect(jdbcOptions.getDialect())
                 .withFieldNames(DataType.getFieldNames(dataType).toArray(new String[0]))
                 .withKeyFields(keyFields.length > 0 ? keyFields : null)
+                .withUpdateFields(updateFields)
                 .build();
     }
 
@@ -246,6 +241,7 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
         optionalOptions.add(LookupOptions.PARTIAL_CACHE_MAX_ROWS);
         optionalOptions.add(LookupOptions.PARTIAL_CACHE_CACHE_MISSING_KEY);
         optionalOptions.add(LookupOptions.MAX_RETRIES);
+        optionalOptions.add(UPDATE_FIELDS);
         return optionalOptions;
     }
 
@@ -262,7 +258,8 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
                         SINK_MAX_RETRIES,
                         MAX_RETRY_TIMEOUT,
                         SCAN_FETCH_SIZE,
-                        SCAN_AUTO_COMMIT)
+                        SCAN_AUTO_COMMIT,
+                        UPDATE_FIELDS)
                 .collect(Collectors.toSet());
     }
 
@@ -321,6 +318,16 @@ public class JdbcDynamicTableFactory implements DynamicTableSourceFactory, Dynam
                                     ConfigOptions.key(MAX_RETRY_TIMEOUT.key())
                                             .stringType()
                                             .noDefaultValue())));
+        }
+
+        if (config.getOptional(UPDATE_FIELDS).isPresent()) {
+            String updateFields = config.get(UPDATE_FIELDS);
+            if (updateFields == null || updateFields.isEmpty()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The value of '%s' option must be field like 'field1,field2'",
+                                UPDATE_FIELDS.key()));
+            }
         }
     }
 

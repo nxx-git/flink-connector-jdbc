@@ -48,6 +48,7 @@ public final class TableInsertOrUpdateStatementExecutor
     private final JdbcRowConverter updateSetter;
 
     private final Function<RowData, RowData> keyExtractor;
+    private final Function<RowData, RowData> updateExtractor;
 
     private transient FieldNamedPreparedStatement existStatement;
     private transient FieldNamedPreparedStatement insertStatement;
@@ -60,7 +61,8 @@ public final class TableInsertOrUpdateStatementExecutor
             JdbcRowConverter existSetter,
             JdbcRowConverter insertSetter,
             JdbcRowConverter updateSetter,
-            Function<RowData, RowData> keyExtractor) {
+            Function<RowData, RowData> keyExtractor,
+            Function<RowData, RowData> updateExtractor) {
         this.existStmtFactory = checkNotNull(existStmtFactory);
         this.insertStmtFactory = checkNotNull(insertStmtFactory);
         this.updateStmtFactory = checkNotNull(updateStmtFactory);
@@ -68,6 +70,7 @@ public final class TableInsertOrUpdateStatementExecutor
         this.insertSetter = checkNotNull(insertSetter);
         this.updateSetter = checkNotNull(updateSetter);
         this.keyExtractor = keyExtractor;
+        this.updateExtractor = updateExtractor;
     }
 
     @Override
@@ -79,12 +82,12 @@ public final class TableInsertOrUpdateStatementExecutor
 
     @Override
     public void addToBatch(RowData record) throws SQLException {
-        processOneRowInBatch(keyExtractor.apply(record), record);
+        processOneRowInBatch(keyExtractor.apply(record), updateExtractor.apply(record), record);
     }
 
-    private void processOneRowInBatch(RowData pk, RowData row) throws SQLException {
+    private void processOneRowInBatch(RowData pk, RowData updRow, RowData row) throws SQLException {
         if (exist(pk)) {
-            updateSetter.toExternal(row, updateStatement);
+            updateSetter.toExternal(updRow, updateStatement);
             updateStatement.addBatch();
         } else {
             insertSetter.toExternal(row, insertStatement);

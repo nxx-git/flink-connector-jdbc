@@ -34,15 +34,11 @@ import org.apache.flink.table.types.logical.TimestampType;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -64,6 +60,11 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                         .toArray(LogicalType[]::new);
         this.toInternalConverters = new JdbcDeserializationConverter[rowType.getFieldCount()];
         this.toExternalConverters = new JdbcSerializationConverter[rowType.getFieldCount()];
+        System.out.println(
+                "field types = "
+                        + Arrays.toString(fieldTypes)
+                        + " field count = "
+                        + rowType.getFieldCount());
         for (int i = 0; i < rowType.getFieldCount(); i++) {
             toInternalConverters[i] = createNullableInternalConverter(rowType.getTypeAt(i));
             toExternalConverters[i] = createNullableExternalConverter(fieldTypes[i]);

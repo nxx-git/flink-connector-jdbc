@@ -60,6 +60,7 @@ class SimpleBatchStatementExecutor<T, V> implements JdbcBatchStatementExecutor<T
 
     @Override
     public void addToBatch(T record) {
+        LOG.info("Writing record to JDBC. {}", record);
         batch.add(valueTransformer.apply(record));
     }
 

@@ -73,13 +73,15 @@ public class PostgresDialect extends AbstractDialect {
                 Arrays.stream(fieldNames)
                         .map(f -> quoteIdentifier(f) + "=EXCLUDED." + quoteIdentifier(f))
                         .collect(Collectors.joining(", "));
-        return Optional.of(
+        String rel =
                 getInsertIntoStatement(tableName, fieldNames)
                         + " ON CONFLICT ("
                         + uniqueColumns
                         + ")"
                         + " DO UPDATE SET "
-                        + updateClause);
+                        + updateClause;
+        System.out.println(rel);
+        return Optional.of(rel);
     }
 
     @Override

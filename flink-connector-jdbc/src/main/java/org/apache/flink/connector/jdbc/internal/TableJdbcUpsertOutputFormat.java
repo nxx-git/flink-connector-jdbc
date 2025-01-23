@@ -162,6 +162,7 @@ class TableJdbcUpsertOutputFormat
                         ? null
                         : Arrays.stream(pkFields).map(f -> opt.getFieldTypes()[f]).toArray();
 
+        System.out.println("createUpsertRowExecutor in TableJdbcUpsertOutputFormat");
         return opt.getDialect()
                 .getUpsertStatement(
                         opt.getTableName(), opt.getFieldNames(), opt.getKeyFields().get())

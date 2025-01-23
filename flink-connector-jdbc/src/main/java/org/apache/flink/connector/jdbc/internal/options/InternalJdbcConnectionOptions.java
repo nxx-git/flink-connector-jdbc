@@ -39,6 +39,7 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
     private final String tableName;
     private final JdbcDialect dialect;
     private final @Nullable Integer parallelism;
+    private final String updateFields;
 
     private InternalJdbcConnectionOptions(
             String dbURL,
@@ -46,6 +47,7 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
             @Nullable String driverName,
             @Nullable String username,
             @Nullable String password,
+            String updateFields,
             JdbcDialect dialect,
             @Nullable Integer parallelism,
             int connectionCheckTimeoutSeconds) {
@@ -53,6 +55,7 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
         this.tableName = tableName;
         this.dialect = dialect;
         this.parallelism = parallelism;
+        this.updateFields = updateFields;
     }
 
     public String getTableName() {
@@ -61,6 +64,10 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
 
     public JdbcDialect getDialect() {
         return dialect;
+    }
+
+    public String getUpdateFields() {
+        return updateFields;
     }
 
     public Integer getParallelism() {
@@ -113,6 +120,7 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
         private String password;
         private JdbcDialect dialect;
         private Integer parallelism;
+        private String updateFields;
         private int connectionCheckTimeoutSeconds = 60;
 
         /**
@@ -143,6 +151,11 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
         /** optional, password. */
         public Builder setPassword(String password) {
             this.password = password;
+            return this;
+        }
+
+        public Builder setUpdateFields(String updateFields) {
+            this.updateFields = updateFields;
             return this;
         }
 
@@ -203,6 +216,7 @@ public class InternalJdbcConnectionOptions extends JdbcConnectionOptions {
                     driverName,
                     username,
                     password,
+                    updateFields,
                     dialect,
                     parallelism,
                     connectionCheckTimeoutSeconds);

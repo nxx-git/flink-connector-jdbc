@@ -40,6 +40,8 @@ import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.function.Function;
@@ -141,6 +143,21 @@ public class JdbcOutputFormatBuilder implements Serializable {
                         .toArray();
         LogicalType[] pkTypes =
                 Arrays.stream(pkFields).mapToObj(f -> fieldTypes[f]).toArray(LogicalType[]::new);
+
+        String[] updNames = opt.getUpdateFields().orElse(null);
+        int[] updFields =
+                updNames == null
+                        ? null
+                        : Arrays.stream(updNames)
+                                .mapToInt(Arrays.asList(opt.getFieldNames())::indexOf)
+                                .toArray();
+        LogicalType[] updTypes =
+                updFields == null
+                        ? null
+                        : Arrays.stream(updFields)
+                                .mapToObj(f -> fieldTypes[f])
+                                .toArray(LogicalType[]::new);
+
         final TypeSerializer<RowData> typeSerializer =
                 rowDataTypeInfo.createSerializer(ctx.getExecutionConfig());
         final Function<RowData, RowData> valueTransform =
@@ -156,7 +173,10 @@ public class JdbcOutputFormatBuilder implements Serializable {
                         fieldTypes,
                         pkFields,
                         pkNames,
-                        pkTypes),
+                        pkTypes,
+                        updFields,
+                        updNames,
+                        updTypes),
                 createDeleteExecutor(dialect, tableName, pkNames, pkTypes),
                 createRowKeyExtractor(fieldTypes, pkFields),
                 valueTransform);
@@ -185,19 +205,39 @@ public class JdbcOutputFormatBuilder implements Serializable {
             LogicalType[] fieldTypes,
             int[] pkFields,
             String[] pkNames,
-            LogicalType[] pkTypes) {
-        return dialect.getUpsertStatement(tableName, fieldNames, pkNames)
-                .map(sql -> createSimpleRowExecutor(dialect, fieldNames, fieldTypes, sql))
-                .orElseGet(
-                        () ->
-                                createInsertOrUpdateExecutor(
-                                        dialect,
-                                        tableName,
-                                        fieldNames,
-                                        fieldTypes,
-                                        pkFields,
-                                        pkNames,
-                                        pkTypes));
+            LogicalType[] pkTypes,
+            int[] updateFields,
+            String[] updateNames,
+            LogicalType[] updateTypes) {
+        System.out.println("createUpsertRowExecutor in JdbcOutputFormatBuilder");
+
+        return updateNames != null
+                ? createInsertOrUpdateExecutor(
+                        dialect,
+                        tableName,
+                        fieldNames,
+                        fieldTypes,
+                        pkFields,
+                        pkNames,
+                        pkTypes,
+                        updateFields,
+                        updateNames,
+                        updateTypes)
+                : dialect.getUpsertStatement(tableName, fieldNames, pkNames)
+                        .map(sql -> createSimpleRowExecutor(dialect, fieldNames, fieldTypes, sql))
+                        .orElseGet(
+                                () ->
+                                        createInsertOrUpdateExecutor(
+                                                dialect,
+                                                tableName,
+                                                fieldNames,
+                                                fieldTypes,
+                                                pkFields,
+                                                pkNames,
+                                                pkTypes,
+                                                null,
+                                                null,
+                                                null));
     }
 
     private static JdbcBatchStatementExecutor<RowData> createDeleteExecutor(
@@ -222,10 +262,31 @@ public class JdbcOutputFormatBuilder implements Serializable {
             LogicalType[] fieldTypes,
             int[] pkFields,
             String[] pkNames,
-            LogicalType[] pkTypes) {
+            LogicalType[] pkTypes,
+            int[] updateFields,
+            String[] updateNames,
+            LogicalType[] updateTypes) {
+        System.out.println("createInsertOrUpdateExecutor in JdbcOutputFormatBuilder");
+        String[] updateUseNames =
+                updateNames == null ? fieldNames : ArrayUtils.addAll(updateNames, pkNames);
+        int[] updateUseFields =
+                updateFields == null ? null : ArrayUtils.addAll(updateFields, pkFields);
+        LogicalType[] updateUseTypes =
+                updateTypes == null ? fieldTypes : ArrayUtils.addAll(updateTypes, pkTypes);
+
         final String existStmt = dialect.getRowExistsStatement(tableName, pkNames);
         final String insertStmt = dialect.getInsertIntoStatement(tableName, fieldNames);
-        final String updateStmt = dialect.getUpdateStatement(tableName, fieldNames, pkNames);
+        final String updateStmt =
+                dialect.getUpdateStatement(
+                        tableName, updateNames == null ? fieldNames : updateNames, pkNames);
+
+        System.out.println("existStmt: " + existStmt);
+        System.out.println("insertStmt: " + insertStmt);
+        System.out.println("updateStmt: " + updateStmt);
+        System.out.println("pkNames: " + Arrays.toString(pkNames));
+        System.out.println("fieldNames: " + Arrays.toString(fieldNames));
+        System.out.println("updateUseNames: " + Arrays.toString(updateUseNames));
+
         return new TableInsertOrUpdateStatementExecutor(
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
@@ -235,11 +296,14 @@ public class JdbcOutputFormatBuilder implements Serializable {
                                 connection, insertStmt, fieldNames),
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
-                                connection, updateStmt, fieldNames),
+                                connection, updateStmt, updateUseNames),
                 dialect.getRowConverter(RowType.of(pkTypes)),
                 dialect.getRowConverter(RowType.of(fieldTypes)),
-                dialect.getRowConverter(RowType.of(fieldTypes)),
-                createRowKeyExtractor(fieldTypes, pkFields));
+                dialect.getRowConverter(RowType.of(updateUseTypes)),
+                createRowKeyExtractor(fieldTypes, pkFields),
+                updateFields == null
+                        ? row -> row
+                        : createRowKeyExtractor(fieldTypes, updateUseFields));
     }
 
     private static Function<RowData, RowData> createRowKeyExtractor(

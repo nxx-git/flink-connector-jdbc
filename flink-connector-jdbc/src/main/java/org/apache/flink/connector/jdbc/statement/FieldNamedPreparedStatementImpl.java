@@ -195,6 +195,7 @@ public class FieldNamedPreparedStatementImpl implements FieldNamedPreparedStatem
 
         HashMap<String, List<Integer>> parameterMap = new HashMap<>();
         String parsedSQL = parseNamedStatement(sql, parameterMap);
+        System.out.println("Parsed SQL: " + parsedSQL);
 
         // currently, the statements must contain all the field parameters
         final int parameterMapSize = parameterMap.size();

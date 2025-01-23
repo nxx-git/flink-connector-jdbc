@@ -55,7 +55,13 @@ public final class TableSimpleStatementExecutor implements JdbcBatchStatementExe
 
     @Override
     public void addToBatch(RowData record) throws SQLException {
+        System.out.println(
+                "TableSimpleStatementExecutor addToBatch, record: "
+                        + record
+                        + ", rowKind: "
+                        + record.getRowKind().shortString());
         converter.toExternal(record, st);
+        System.out.println("TableSimpleStatementExecutor addToBatch, record after convert: " + st);
         st.addBatch();
     }
 

@@ -34,6 +34,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
 
     private final String[] fieldNames;
     @Nullable private final String[] keyFields;
+    @Nullable private final String[] updateFields;
     private final String tableName;
     private final JdbcDialect dialect;
 
@@ -46,12 +47,14 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
             JdbcDialect dialect,
             String[] fieldNames,
             int[] fieldTypes,
-            String[] keyFields) {
+            String[] keyFields,
+            String[] updateFields) {
         super(fieldTypes);
         this.tableName = Preconditions.checkNotNull(tableName, "table is empty");
         this.dialect = Preconditions.checkNotNull(dialect, "dialect is empty");
         this.fieldNames = Preconditions.checkNotNull(fieldNames, "field names is empty");
         this.keyFields = keyFields;
+        this.updateFields = updateFields;
     }
 
     public String getTableName() {
@@ -70,6 +73,10 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
         return Optional.ofNullable(keyFields);
     }
 
+    public Optional<String[]> getUpdateFields() {
+        return Optional.ofNullable(updateFields);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -82,7 +89,8 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
         return Arrays.equals(fieldNames, that.fieldNames)
                 && Arrays.equals(keyFields, that.keyFields)
                 && Objects.equals(tableName, that.tableName)
-                && Objects.equals(dialect.dialectName(), that.dialect.dialectName());
+                && Objects.equals(dialect.dialectName(), that.dialect.dialectName())
+                && Arrays.equals(updateFields, that.updateFields);
     }
 
     @Override
@@ -90,6 +98,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
         int result = Objects.hash(tableName, dialect.dialectName());
         result = 31 * result + Arrays.hashCode(fieldNames);
         result = 31 * result + Arrays.hashCode(keyFields);
+        result = 31 * result + Arrays.hashCode(updateFields);
         return result;
     }
 
@@ -100,6 +109,7 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
         private String[] fieldNames;
         private String[] keyFields;
         private JdbcDialect dialect;
+        private String[] updateFields;
 
         @Override
         protected JdbcDmlOptionsBuilder self() {
@@ -136,8 +146,19 @@ public class JdbcDmlOptions extends JdbcTypedQueryOptions {
             return self();
         }
 
+        public JdbcDmlOptionsBuilder withUpdateFields(String updateField, String... updateFields) {
+            this.updateFields = concat(updateField, updateFields);
+            return this;
+        }
+
+        public JdbcDmlOptionsBuilder withUpdateFields(String[] updateFields) {
+            this.updateFields = updateFields;
+            return self();
+        }
+
         public JdbcDmlOptions build() {
-            return new JdbcDmlOptions(tableName, dialect, fieldNames, fieldTypes, keyFields);
+            return new JdbcDmlOptions(
+                    tableName, dialect, fieldNames, fieldTypes, keyFields, updateFields);
         }
 
         static String[] concat(String first, String... next) {

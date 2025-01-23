@@ -62,6 +62,14 @@ public class JdbcConnectorOptions {
                             "The class name of the JDBC driver to use to connect to this URL. "
                                     + "If not set, it will automatically be derived from the URL.");
 
+    public static final ConfigOption<String> UPDATE_FIELDS =
+            ConfigOptions.key("update-fields")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The fields to be updated. "
+                                    + "If not set, all fields will be updated by upsert mode.");
+
     public static final ConfigOption<Duration> MAX_RETRY_TIMEOUT =
             ConfigOptions.key("connection.max-retry-timeout")
                     .durationType()
